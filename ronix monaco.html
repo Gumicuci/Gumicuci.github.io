@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com;">
+    <style>
+        body {
+            margin: 0;
+            padding: 0px;
+            background: #05000A;
+            color: #6D7381;
+            font-family: Arial;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 5px;
+            align-items: center;
+        }
+
+            .tabs-container::-webkit-scrollbar {
+                height: 6px;
+                width: 0;
+            }
+
+            .tabs-container::-webkit-scrollbar-track {
+                background: #09000E;
+            }
+
+            .tabs-container::-webkit-scrollbar-thumb {
+                background: #09000E;
+            }
+
+                .tabs-container::-webkit-scrollbar-thumb:hover {
+                    background: #0D0012;
+                }
+
+                .tabs-container::-webkit-scrollbar-thumb:active {
+                    background: #09000E;
+                }
+
+        .tab-item {
+            background: #09000E;
+            border: 1px solid #0D0012;
+            border-radius: 4px;
+            height: 25px;
+            min-width: 80px;
+            max-width: 200px;
+            display: flex;
+            align-items: center;
+            padding: 0 25px 0 10px;
+            position: relative;
+            cursor: default;
+            user-select: none;
+            overflow: hidden;
+            flex-shrink: 0;
+            color: #6D7381;
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, opacity 0.25s ease, max-width 0.25s ease, transform 0.25s ease;
+        }
+
+            .tab-item.removing {
+                opacity: 0;
+                max-width: 0;
+                padding: 0;
+                margin: 0;
+                overflow: hidden;
+                border-width: 0;
+                transform: translateY(-10px);
+            }
+
+            .tab-item.adding {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            .tab-item:not(.selected):hover {
+                background: #110016;
+                border-color: #250030;
+            }
+
+            .tab-item:not(.selected):active {
+                background: #09000E;
+                border-color: #0D0012;
+            }
+
+            .tab-item.selected {
+                background: #0D0012;
+                border-color: #110016;
+                color: #B0B7C4;
+            }
+
+        .tab-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 12px;
+        }
+
+        .tab-close {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            padding: 0;
+            transition: background-color 0.25s ease;
+        }
+
+            .tab-close svg {
+                fill: #6D7381;
+                transition: fill 0.25s ease;
+            }
+
+            .tab-close:hover svg {
+                fill: #B0B7C4;
+            }
+
+            .tab-close:active svg {
+                fill: #6D7381;
+            }
+
+            .tab-close:hover:active svg {
+                fill: #6D7381;
+            }
+
+        .add-tab {
+            background: #09000E;
+            border: 1px solid #0D0012;
+            border-radius: 4px;
+            height: 25px;
+            width: 25px;
+            margin-left: 5px;
+            cursor: pointer;
+            color: #6D7381;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+            .add-tab:hover {
+                background: #0D0012;
+                border-color: #110016;
+                color: #B0B7C4;
+            }
+
+            .add-tab:active {
+                background: #09000E;
+                border-color: #0D0012;
+                color: #6D7381;
+            }
+
+            .add-tab:hover:active {
+                background: #09000E;
+                border-color: #0D0012;
+                color: #6D7381;
+            }
+
+            .add-tab.released-hover {
+                background: #0D0012;
+                border-color: #110016;
+                color: #B0B7C4;
+            }
+
+        .editor-container {
+            flex: 1;
+            margin-top: 5px;
+            border: 1px solid #0D0012;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .tab-input {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: calc(100% - 25px);
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #B0B7C4;
+            padding: 0 25px 0 10px;
+            outline: none;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .editor-wrapper {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+            .editor-wrapper.active {
+                display: block;
+            }
+
+        .tab-item.renaming .tab-text {
+            opacity: 0;
+        }
+
+        .monaco-editor {
+            background-color: #05000A !important;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: #110016;
+            border: 1px solid #250030;
+            color: #B0B7C4;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: none;
+        }
+
+        .notification {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: rgba(13, 0, 18, 0.9); /* Changed to rgba with 0.9 opacity */
+            color: #B0B7C4;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: 1px solid #250030;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2); /* Enhanced shadow */
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+            z-index: 1000;
+            max-width: 400px;
+            width: auto;
+            text-align: left;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(3px);
+        }
+
+            .notification.active {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
+            .notification:not(.active) {
+                transform: translateX(-50%) translateY(-40px); /* Move up while fading */
+            }
+
+            .notification.success {
+                background: rgba(13, 42, 18, 0.9);
+                border-color: #1F4025;
+            }
+
+            .notification.error {
+                background: rgba(42, 13, 18, 0.9);
+                border-color: #401F25;
+            }
+
+        .notification-content {
+            flex: 1;
+            margin-right: 10px;
+            max-height: 80px;
+            overflow: hidden;
+        }
+
+        .notification-message {
+            display: block;
+            word-break: break-word;
+            line-height: 1.4;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 3px;
+            height: 24px;
+            width: 24px;
+            margin-left: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            flex-shrink: 0;
+            align-self: center;
+        }
+
+            .notification-close svg {
+                fill: #6D7381;
+                transition: fill 0.2s ease;
+            }
+
+            .notification-close.hover svg {
+                fill: #B0B7C4;
+            }
+
+            .notification-close.pressed svg {
+                fill: #6D7381;
+            }
+
+            .notification-close.hover.pressed svg {
+                fill: #6D7381;
+            }
+    </style>
+</head>
+<body>
+    <div class="tabs-container" id="tabsContainer">
+        <div class="tab-item selected" data-editor-id="editor0" title="Untitled">
+            <span class="tab-text">Untitled</span>
+            <button class="tab-close">
+                <svg viewBox="0 0 24 24" width="12" height="12">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+            </button>
+        </div>
+        <button class="add-tab" id="addTab">+</button>
+    </div>
+    <div class="editor-container">
+        <div id="editor0" class="editor-wrapper active"></div>
+    </div>
+    <div class="notification" id="globalNotification"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <script>
+        const tabsContainer = document.getElementById('tabsContainer');
+        const addTab = document.getElementById('addTab');
+        const tooltip = document.getElementById('tooltip');
+        let editorCount = 0;
+        const editors = new Map();
+        let tabState = [];
+        let themeInitialized = false;
+
+        let draggedTab = null;
+        let dragStartX = 0;
+        let initialMouseX = 0;
+        window.notificationQueue = [];
+
+        window.setText = (text) => {
+            const editorId = document.querySelector('.tab-item.selected')?.dataset.editorId;
+            if (editorId && editors.has(editorId)) {
+                editors.get(editorId).setValue(text);
+                saveTabsState();
+            }
+        };
+
+        window.getText = () => {
+            const editorId = document.querySelector('.tab-item.selected')?.dataset.editorId;
+            return editorId && editors.has(editorId) ? editors.get(editorId).getValue() : null;
+        };
+
+        function showNotification(message, duration = 3000, closable = true) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'notification-content';
+
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'notification-message';
+            messageSpan.textContent = message;
+            messageSpan.title = message;
+
+            messageWrapper.appendChild(messageSpan);
+            notification.appendChild(messageWrapper);
+
+            if (closable) {
+                const closeButton = document.createElement('button');
+                closeButton.className = 'notification-close';
+                closeButton.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>`;
+
+                notification.appendChild(closeButton);
+
+                closeButton.addEventListener('mouseenter', () => {
+                    closeButton.classList.add('hover');
+                });
+
+                closeButton.addEventListener('mouseleave', () => {
+                    closeButton.classList.remove('hover', 'pressed');
+                });
+
+                closeButton.addEventListener('mousedown', () => {
+                    closeButton.classList.add('pressed');
+                });
+
+                closeButton.addEventListener('mouseup', () => {
+                    closeButton.classList.remove('pressed');
+                    if (closeButton.matches(':hover')) {
+                        closeButton.classList.add('hover');
+                    }
+                });
+
+                closeButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeNotification();
+                });
+            }
+
+            document.body.appendChild(notification);
+
+            window.notificationQueue.push(notification);
+
+            // Inside showNotification function, replace the existing setTimeout:
+            setTimeout(() => {
+                notification.classList.add('active');
+
+                // Wait for transition to complete before positioning
+                const onTransitionEnd = () => {
+                    updateNotificationPositions(true);
+                    notification.removeEventListener('transitionend', onTransitionEnd);
+                };
+                notification.addEventListener('transitionend', onTransitionEnd, { once: true });
+            }, 10);
+
+            const removeNotification = () => {
+                notification.classList.remove('active');
+
+                // Add extra upward movement
+                notification.style.transform = `translate(-50%, -40px)`;
+
+                setTimeout(() => {
+                    const index = window.notificationQueue.indexOf(notification);
+                    if (index > -1) {
+                        window.notificationQueue.splice(index, 1);
+                    }
+                    notification.remove();
+                    updateNotificationPositions();
+                }, 300); // Matches transition duration
+            };
+
+            if (closable) {
+                notification.addEventListener('click', (e) => {
+                    if (!e.target.closest('.notification-close')) {
+                        removeNotification();
+                    }
+                });
+                notification.style.cursor = 'pointer';
+            }
+
+            if (duration > 0) {
+                setTimeout(removeNotification, duration);
+            }
+
+            return notification;
+        }
+
+        function updateNotificationPositions() {
+            const topMargin = 20;
+            const gap = 10;
+
+            window.notificationQueue.forEach((notification, index) => {
+                const targetTop = topMargin + (index * (40 + gap)); // 40px = approx notification height
+                notification.style.transform = `translate(-50%, 0)`;
+                notification.style.top = `${targetTop}px`;
+            });
+        }
+
+        function notification(message, seconds = 10, closable = true) {
+            const duration = seconds * 1000;
+            return showNotification(message, duration, closable);
+        }
+
+        window.showNotification = showNotification;
+        window.updateNotificationPositions = updateNotificationPositions;
+        window.notification = notification;
+
+        function renumberUntitledTabs() {
+            let untitledCount = 0;
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                if (!tab.dataset.customName) {
+                    const tabName = untitledCount === 0 ? 'Untitled' : `Untitled#${untitledCount}`;
+                    tab.querySelector('.tab-text').textContent = tabName;
+                    tab.title = tabName;
+                    untitledCount++;
+                }
+            });
+        }
+
+        function createTab(content = '--[[\r    https://discord.com/invite/ronix/\r    nuag3ux\n]]', title = 'New Tab', isCustomName = false) {
+            return new Promise((resolve) => {
+                editorCount++;
+                const editorId = `editor${editorCount}`;
+
+                const tab = document.createElement('div');
+                tab.className = 'tab-item';
+                tab.dataset.editorId = editorId;
+                if (isCustomName) tab.dataset.customName = 'true';
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'tab-text';
+                textSpan.textContent = title;
+                tab.title = title;
+
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'tab-close';
+                closeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>`;
+
+                tab.appendChild(textSpan);
+                tab.appendChild(closeBtn);
+
+                const editorWrapper = document.createElement('div');
+                editorWrapper.id = editorId;
+                editorWrapper.className = 'editor-wrapper';
+                document.querySelector('.editor-container').appendChild(editorWrapper);
+
+                require(['vs/editor/editor.main'], function () {
+                    if (!themeInitialized) {
+                        monaco.editor.defineTheme('custom-dark', {
+                            base: 'vs-dark',
+                            inherit: true,
+                            rules: [],
+                            colors: {
+                                'editor.background': '#05000A',
+                            }
+                        });
+                        themeInitialized = true;
+                    }
+
+                    const editor = monaco.editor.create(editorWrapper, {
+                        value: content,
+                        language: 'lua',
+                        theme: 'custom-dark',
+                        links: true,
+                        minimap: true,
+                        smoothScrolling: true,
+                        cursorBlinking: "smooth",
+                        cursorSmoothCaretAnimation: true,
+                        formatOnPaste: true,
+                        automaticLayout: true,
+                        fontSize: 12
+                    });
+                    editor.onDidChangeModelContent(() => saveTabsState());
+                    editors.set(editorId, editor);
+                    resolve(tab);
+                });
+            });
+        }
+
+        function saveTabsState() {
+            try {
+                tabState = Array.from(document.querySelectorAll('.tab-item')).map(tab => {
+                    const editorId = tab.dataset.editorId;
+                    const editor = editors.get(editorId);
+                    return {
+                        title: tab.title,
+                        content: editor ? editor.getValue() : '',
+                        customName: !!tab.dataset.customName,
+                        active: tab.classList.contains('selected'),
+                        editorId: editorId
+                    };
+                });
+
+                localStorage.setItem('tabState', JSON.stringify(tabState));
+                return true;
+            } catch (err) {
+                console.error("Error saving tab state:", err);
+                return false;
+            }
+        }
+
+        async function loadTabsState() {
+            try {
+                const savedState = localStorage.getItem('tabState');
+                if (savedState) {
+                    const state = JSON.parse(savedState);
+
+                    document.querySelectorAll('.tab-item').forEach(tab => tab.remove());
+                    document.querySelectorAll('.editor-wrapper').forEach(wrapper => wrapper.remove());
+                    editors.clear();
+
+                    for (const tabData of state) {
+                        const tab = await createTab(tabData.content, tabData.title, tabData.customName);
+                        tab.title = tabData.title;
+                        tabsContainer.insertBefore(tab, addTab);
+                        if (tabData.active) {
+                            selectTab(tab);
+                        }
+                    }
+
+                    renumberUntitledTabs();
+                    return true;
+                }
+            } catch (err) {
+                console.error("Error loading tab state:", err);
+            }
+            return false;
+        }
+
+        function selectTab(tab) {
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('selected'));
+            tab.classList.add('selected');
+            document.querySelectorAll('.editor-wrapper').forEach(e => e.classList.remove('active'));
+            document.getElementById(tab.dataset.editorId).classList.add('active');
+            saveTabsState();
+        }
+
+        function handleTabDrag(e) {
+            if (!draggedTab) return;
+
+            const deltaX = e.clientX - initialMouseX;
+            const tabs = Array.from(tabsContainer.children)
+                .filter(c => c.classList.contains('tab-item'))
+                .filter(t => t !== draggedTab);
+
+            let targetIndex = tabs.findIndex(tab => {
+                const rect = tab.getBoundingClientRect();
+                return e.clientX < rect.left + rect.width / 2;
+            });
+
+            if (targetIndex === -1) targetIndex = tabs.length;
+
+            const allChildren = Array.from(tabsContainer.children);
+            const currentIndex = allChildren.indexOf(draggedTab);
+            const targetChild = tabs[targetIndex] || addTab;
+            const targetChildIndex = allChildren.indexOf(targetChild);
+
+            if (targetChildIndex !== currentIndex && targetChildIndex !== currentIndex + 1) {
+                tabsContainer.insertBefore(draggedTab, targetChild);
+                initialMouseX = e.clientX;
+                saveTabsState();
+            }
+        }
+
+        tabsContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            tabsContainer.scrollLeft += e.deltaY;
+        });
+
+        addTab.addEventListener('mousedown', () => {
+            addTab.classList.add('pressed');
+            addTab.classList.remove('released-hover');
+        });
+
+        addTab.addEventListener('mouseup', () => {
+            addTab.classList.remove('pressed');
+            if (addTab.matches(':hover')) {
+                addTab.classList.add('released-hover');
+            }
+        });
+
+        addTab.addEventListener('mouseenter', () => {
+            if (!addTab.classList.contains('pressed')) {
+                addTab.classList.add('released-hover');
+            }
+        });
+
+        addTab.addEventListener('mouseleave', () => {
+            addTab.classList.remove('released-hover');
+        });
+
+        // Modify your addTab click handler
+        addTab.addEventListener('click', async () => {
+            const newTab = await createTab();
+            newTab.classList.add('adding');
+            tabsContainer.insertBefore(newTab, addTab);
+
+            // Force reflow to make the animation work
+            void newTab.offsetWidth;
+
+            newTab.classList.remove('adding');
+            renumberUntitledTabs();
+            selectTab(newTab);
+            tabsContainer.scrollLeft = tabsContainer.scrollWidth;
+        });
+
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.tab-item') && !e.target.closest('.tab-close')) {
+                selectTab(e.target.closest('.tab-item'));
+            }
+
+            if (e.target.closest('.tab-close')) {
+                const tab = e.target.closest('.tab-item');
+                const editorId = tab.dataset.editorId;
+
+                tab.classList.add('removing');
+
+                setTimeout(async () => {
+                    if (editors.has(editorId)) {
+                        editors.get(editorId).dispose();
+                        editors.delete(editorId);
+                    }
+                    document.getElementById(editorId)?.remove();
+                    tab.remove();
+                    renumberUntitledTabs();
+
+                    if (document.querySelectorAll('.tab-item').length > 0) {
+                        selectTab(document.querySelector('.tab-item'));
+                    } else {
+                        const newTab = await createTab();
+                        newTab.classList.add('adding');
+                        tabsContainer.insertBefore(newTab, addTab);
+
+                        // Force reflow
+                        void newTab.offsetWidth;
+
+                        newTab.classList.remove('adding');
+                        selectTab(newTab);
+                    }
+                    saveTabsState();
+                }, 250); // Same as transition duration
+            }
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.tab-close svg')) {
+                e.target.closest('.tab-close').classList.add('pressed');
+            }
+
+            if (e.target.closest('.tab-item') && !e.target.closest('.tab-close') && !e.target.closest('.tab-input')) {
+                const tab = e.target.closest('.tab-item');
+                if (tab.classList.contains('renaming')) return;
+
+                draggedTab = tab;
+                dragStartX = tab.getBoundingClientRect().left;
+                initialMouseX = e.clientX;
+                tab.style.cursor = 'grabbing';
+                document.addEventListener('mousemove', handleTabDrag);
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            document.querySelectorAll('.tab-close.pressed').forEach(btn => {
+                btn.classList.remove('pressed');
+            });
+
+            if (draggedTab) {
+                draggedTab.style.cursor = '';
+                draggedTab = null;
+                document.removeEventListener('mousemove', handleTabDrag);
+                saveTabsState();
+            }
+        });
+
+        document.addEventListener('dblclick', (e) => {
+            if (e.target.closest('.tab-item') && !e.target.closest('.tab-close')) {
+                const tab = e.target.closest('.tab-item');
+                const textSpan = tab.querySelector('.tab-text');
+                tab.classList.add('renaming');
+
+                const originalName = textSpan.textContent;
+
+                const input = document.createElement('input');
+                input.className = 'tab-input';
+                input.value = originalName;
+
+                let inputProcessed = false;
+
+                const finishRenaming = (saveChanges) => {
+                    if (inputProcessed) return;
+                    inputProcessed = true;
+
+                    if (saveChanges && input.value.trim() !== '') {
+                        textSpan.textContent = input.value.trim().substring(0, 30);
+                        tab.title = input.value.trim();
+                        tab.dataset.customName = 'true';
+                        saveTabsState();
+                    } else {
+                        textSpan.textContent = originalName;
+                        tab.title = originalName;
+                    }
+
+                    tab.classList.remove('renaming');
+                    if (input.parentNode === tab) {
+                        input.remove();
+                    }
+
+                    renumberUntitledTabs();
+                };
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        finishRenaming(true);
+                    } else if (e.key === 'Escape') {
+                        finishRenaming(false);
+                    }
+                });
+
+                input.addEventListener('blur', () => {
+                    finishRenaming(true);
+                });
+
+                tab.appendChild(input);
+                input.focus();
+                input.select();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            const tab = e.target.closest('.tab-item');
+            if (tab) {
+                const textSpan = tab.querySelector('.tab-text');
+                if (textSpan.offsetWidth < textSpan.scrollWidth) {
+                    tooltip.textContent = tab.title;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = `${e.pageX + 10}px`;
+                    tooltip.style.top = `${e.pageY + 10}px`;
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            } else {
+                tooltip.style.display = 'none';
+            }
+        });
+
+
+        document.addEventListener('mouseout', (e) => {
+            if (!e.target.closest('.tab-item')) {
+                tooltip.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('wheel', (e) => {
+            if (e.target.closest('.tabs-container')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        }, false);
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'F12' || e.keyCode === 123) {
+                e.preventDefault();
+                return false;
+            }
+
+            if ((e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+                (e.ctrlKey && (e.key === 'U' || e.key === 'u')) ||
+                (e.ctrlKey && (e.key === 'S' || e.key === 's'))) {
+                e.preventDefault();
+                return false;
+            }
+        }, false);
+
+        (function () {
+            let detectionCount = 0;
+            const maxDetectionsBeforeRefresh = 2;
+
+            function detectDevTools() {
+                const widthThreshold = window.outerWidth - window.innerWidth > 200;
+                const heightThreshold = window.outerHeight - window.innerHeight > 200;
+
+                const reasonableWindowSize = window.outerWidth > 500 && window.outerHeight > 500;
+
+                if (reasonableWindowSize && (widthThreshold || heightThreshold)) {
+                    detectionCount++;
+                    if (detectionCount >= maxDetectionsBeforeRefresh) {
+                        window.location.reload();
+                    }
+                } else {
+                    detectionCount = 0;
+                }
+            }
+
+            setInterval(detectDevTools, 2000);
+            window.addEventListener('resize', function () {
+                setTimeout(detectDevTools, 500);
+            });
+        })();
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } });
+        require(['vs/editor/editor.main'], async function () {
+            monaco.editor.defineTheme('custom-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [],
+                colors: {
+                    'editor.background': '#05000A',
+                }
+            });
+            themeInitialized = true;
+
+            document.querySelectorAll('.tab-item').forEach(tab => tab.remove());
+            document.querySelectorAll('.editor-wrapper').forEach(wrapper => wrapper.remove());
+            editors.clear();
+
+            const savedState = localStorage.getItem('tabState');
+            if (savedState && JSON.parse(savedState).length > 0) {
+                await loadTabsState();
+            } else {
+                const tab = await createTab();
+                tabsContainer.insertBefore(tab, addTab);
+                selectTab(tab);
+            }
+        });
+
+        notification('made by @nuag3ux', 10, false);
+		notification('decompiled by alex54 :sob:', 10, false);
+        notification('Welcome to Ronix!');
+
+        window.addEventListener('beforeunload', () => saveTabsState());
+    </script>
+</body>
+</html>
